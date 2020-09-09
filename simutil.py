@@ -332,6 +332,7 @@ class procRun(object):
                 self.molfrac = [[0] for i in range(self.nbox+1)]
                 self.eta = [[0] for i in range(self.nbox+1)]
                 self.press = [0]
+                self.Z = [0]
                 self.molvol = [0]
                 self.Hvap = [0]
                 self.dens = [0]
@@ -484,6 +485,11 @@ class procRun(object):
                 except ValueError:
                     self.press.append(0.0)
                 # print 'press[',len(self.press)-1,']=',self.press[-1]
+            elif 'compressibility  box' in line:
+                try:
+                    self.Z.append(float(line.split()[-3]))
+                except ValueError:
+                    self.Z.append(0.0)
             elif 'molar volume' in line:
                 fields = line.split()
                 for i in fields[-3:]:

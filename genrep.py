@@ -54,9 +54,16 @@ if __name__ == '__main__':
     # X2: mole fraction for box 2
     # X3: mole fraction for box 3
     fou = open(args.output, 'w')
-    fou.write('#Name NCycles Temp(K) Pvap(kPa) Error X1 Error X2 Error X3 Error Dens(1) Error Density(2) Error Density(vap) Error\n')
+    fou.write('#Name NCycles T[K] P_vap[kPa] E')
+    for imolty in range(nmolty):
+        fou.write(' X1_{} E X2_{} E X3_{} E'.format(imolty+1, imolty+1,
+                                                    imolty+1))
+    for ibox in range(nbox):
+        fou.write(' rho_{}[g/mL] E Z_{} E'.format(ibox+1, ibox+1))
+    fou.write('\n')
 
-    avg = stats.Stat('Press', X1=nmolty, X2=nmolty, X3=nmolty, Dens=nbox)
+    avg = stats.Stat('Press', X1=nmolty, X2=nmolty, X3=nmolty, Dens=nbox,
+                     Z=nbox)
     avg.register('Avg', stats.mean)
     avg.register('SE', stats.stderr)
 
@@ -93,6 +100,7 @@ if __name__ == '__main__':
             avg.Press.append(0.0)
             for ibox in range(nbox):
                 avg.Dens[ibox].append(0.0)
+                avg.Z[ibox].append(0.0)
 
             for imol in range(nmolty):
                 avg.X1[imol].append(0.0)
@@ -119,6 +127,8 @@ if __name__ == '__main__':
                     for ibox in range(result.nbox):
                         avg.Dens[ibox][run.count -
                                        1] += result.dens[ibox+1]*result.ncycles
+                        avg.Z[ibox][run.count -
+                                    1] += result.Z[ibox+1]*result.ncycles
 
                     for imol in range(nmolty):
                         X1 = result.molfrac[1][imol+1]
@@ -140,6 +150,7 @@ if __name__ == '__main__':
 
             for ibox in range(nbox):
                 avg.Dens[ibox][run.count-1] /= RunCycles[run.count-1]
+                avg.Z[ibox][run.count-1] /= RunCycles[run.count-1]
 
             for imol in range(nmolty):
                 avg.X1[imol][run.count-1] /= RunCycles[run.count-1]
@@ -161,7 +172,7 @@ if __name__ == '__main__':
                 avg.AvgX1[imol], avg.SEX1[imol], avg.AvgX2[imol], avg.SEX2[imol], avg.AvgX3[imol], avg.SEX3[imol]))
 
         for ibox in range(nbox):
-            fou.write(' %1.5G %1.5G' % (avg.AvgDens[ibox], avg.SEDens[ibox]))
+            fou.write(' %1.5G %1.5G %1.5G %1.5G' % (avg.AvgDens[ibox], avg.SEDens[ibox], avg.AvgZ[ibox], avg.SEZ[ibox]))
         fou.write('\n')
 
     fou.close()
