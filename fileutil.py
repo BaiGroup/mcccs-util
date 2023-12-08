@@ -69,7 +69,7 @@ def read_line(fi, st=0, N=1):
 
 class ReadFile:
     def __init__(self, inputname):
-        self.__fin = file(inputname)
+        self.__fin = open(inputname)
         self.__index = 0
 
     def __del__(self):
