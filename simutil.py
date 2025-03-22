@@ -1220,30 +1220,29 @@ def estimateRuntime(timeTarget, ncycles, timeElapsed, minIncCycles=500):
 def estimateMolSwapProb(Range, nswap, pmswmt, nboxpair=3, ignore=[], reservedProb=0.0):
     p = []
     for imol in Range:
-        if imol in ignore:
+        if imol in ignore or pmswmt[imol+1] == 0:
+            p.append(0.0)
             continue
         prod = 1
         for i in Range:
-            if i != imol and i not in ignore:
+            if i != imol and i not in ignore and pmswmt[i+1] != 0:
                 prod *= (sum(nswap[i*nboxpair*2+1:i *
                                    nboxpair*2+1+nboxpair*2])+1)/pmswmt[i+1]
         p.append(prod)
-    total = sum(p)
+
     if reservedProb <= 0:
         reservedProb = 0.0
         probPerIgnoredType = 0.0
     else:
         probPerIgnoredType = reservedProb/len(ignore)
     scaledProb = 1.0-reservedProb
+
+    total = sum(p)
     for i, imol in enumerate(Range):
         if imol in ignore:
-            p.insert(i, probPerIgnoredType)
+            p[i] = probPerIgnoredType
         else:
             p[i] = p[i]/total*scaledProb
-            if p[i] == 0:
-                p[i] += 0.05
-            elif p[i] == 1:
-                p[i] -= 0.05*(len(Range)-1)
     q = [sum(p[:i+1]) for i in range(len(p))]
     return q
 
@@ -1251,16 +1250,17 @@ def estimateMolSwapProb(Range, nswap, pmswmt, nboxpair=3, ignore=[], reservedPro
 def estimateSwapBoxProb(nswap, pmswapb, boxpair=range(3)):
     p = []
     for iboxpair in boxpair:
+        if pmswapb[iboxpair+1] == 0:
+            p.append(0.0)
+            continue
         prod = 1
         for i in boxpair:
-            if i != iboxpair:
+            if i != iboxpair and pmswapb[i+1] != 0:
                 prod *= (nswap[i*2+1]+nswap[i*2+2]+1)/pmswapb[i+1]
         p.append(prod)
     total = sum(p)
     for i in range(len(p)):
         p[i] = p[i]/total
-        if p[i] == 1:
-            p[i] -= 0.05*(len(p)-1)
     q = [sum(p[:i+1]) for i in range(len(p))]
     return q
 
@@ -1268,30 +1268,29 @@ def estimateSwapBoxProb(nswap, pmswapb, boxpair=range(3)):
 def estimateSwatchPairProb(Range, nswat, pmsatc, nboxpair=3, ignore=[], reservedProb=0.0):
     p = []
     for ipair in Range:
-        if ipair in ignore:
+        if ipair in ignore or pmsatc[ipair+1] == 0:
+            p.append(0.0)
             continue
         prod = 1
         for i in Range:
-            if i != ipair and i not in ignore:
+            if i != ipair and i not in ignore and pmsatc[i+1] != 0:
                 prod *= (sum(nswat[2*nboxpair*i+1:2 *
                                    nboxpair*i+1+2*nboxpair])+1)/pmsatc[i+1]
         p.append(prod)
-    total = sum(p)
+
     if reservedProb <= 0:
         reservedProb = 0.0
         probPerIgnoredType = 0.0
     else:
         probPerIgnoredType = reservedProb/len(ignore)
     scaledProb = 1.0-reservedProb
+
+    total = sum(p)
     for i, ipair in enumerate(Range):
         if ipair in ignore:
-            p.insert(i, probPerIgnoredType)
+            p[i] = probPerIgnoredType
         else:
             p[i] = p[i]/total*scaledProb
-            if p[i] == 0:
-                p[i] = 0.05
-            elif p[i] == 1:
-                p[i] -= 0.05*(len(Range)-1)
     q = [sum(p[:i+1]) for i in range(len(p))]
     return q
 
@@ -1299,15 +1298,16 @@ def estimateSwatchPairProb(Range, nswat, pmsatc, nboxpair=3, ignore=[], reserved
 def estimateSwatchBoxProb(nswat, pmswtcb, boxpair=range(3)):
     p = []
     for iboxpair in boxpair:
+        if pmswtcb[iboxpair+1] == 0:
+            p.append(0.0)
+            continue
         prod = 1
         for i in boxpair:
-            if i != iboxpair:
+            if i != iboxpair and pmswtcb[i+1] != 0:
                 prod *= (nswat[i*2+1]+nswat[i*2+2]+1)/pmswtcb[i+1]
         p.append(prod)
     total = sum(p)
     for i in range(len(p)):
         p[i] = p[i]/total
-        if p[i] == 1:
-            p[i] -= 0.05*(len(p)-1)
     q = [sum(p[:i+1]) for i in range(len(p))]
     return q

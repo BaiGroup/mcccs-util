@@ -96,6 +96,10 @@ class TopmonInput():
                 self.pmswat = (result.pmswat*result.ncycles /
                                result.ntswat + self.pmvol)
 
+                fcfg_in = open("fort.4."+self.args.modify.split()[0])
+                fdat = fcfg_in.readlines()
+                fcfg_in.close()
+
                 (lineNo, colNo) = su.get_namelist_keyword(fdat, "mc_swatch",
                                                           "nswaty")
                 nswaty = int(fdat[lineNo][colNo+1:].strip())
@@ -115,7 +119,7 @@ class TopmonInput():
                 self.swatch_box_prob = []
                 for ipair in range(self.nswaty):
                     self.swatch_box_prob.append(su.estimateSwatchBoxProb(
-                        result.nswat[ipair*nboxpair:(ipair+1)*nboxpair+1],
+                        result.nswat[ipair*nboxpair*2:(ipair+1)*nboxpair*2+1],
                         result.pmswtcb[ipair+1], boxpair=range(nboxpair)
                     ))
                     for i, p in enumerate(self.swatch_box_prob[ipair]):
@@ -153,7 +157,7 @@ class TopmonInput():
                     ]
 
                 self.swap_mol_prob = su.estimateMolSwapProb(range(result.nmolty), result.nswap,
-                                                            result.pmswmt)
+                                                            result.pmswmt, nboxpair=nboxpair)
                 for i, p in enumerate(self.swap_mol_prob):
                     self.avgParam.pmswmt[i].append(p)
             else:
@@ -198,7 +202,7 @@ class TopmonInput():
                     su.set_namelist_keyword(fdat, "mc_swatch", "pmswat", "{:.5e}".
                                             format(self.pmswat))  # swatch prob
                     su.set_namelist_keyword(fdat, "mc_swatch", "pmsatc",
-                                            (" {:.5e}"*nswaty).format(*self.swatch_pair_prob))
+                                            (" {:.5e}"*self.nswaty).format(*self.swatch_pair_prob))
                     for ipair in range(self.nswaty):
                         # swatch box pair prob
                         su.set_mcswatch(
