@@ -238,10 +238,26 @@ def set_namelist_keyword(fi, namelist, keyword, value, keyword_opening=("&", "$"
 
 
 def get_section(fi, section):
-    found_opening = False
     for line_no, line in enumerate(fi):
         if not fu.is_blank_line(line) and line.strip().upper() == section:
             return line_no
+    raise KeyError
+
+
+def set_next_eta(fi, eta, line_start=0, line_end=0):
+    if line_end == 0:
+        line_end = get_section(fi, 'END MOLECULE_TYPE')
+    nbox = len(eta)
+    found_eta = False
+    for line_no, line in enumerate(fi[line_start:line_end]):
+        if 'eta' in line:
+            found_eta = True
+        elif found_eta and not fu.is_blank_line(line):
+            spaces = list(re.finditer(r'\s+', line.rstrip()))
+            if len(spaces) < nbox:
+                raise KeyError
+            fi[line_start+line_no] = line[:spaces[-nbox].start()+1] + ' '.join(eta) + '\n'
+            return line_start+line_no
     raise KeyError
 
 

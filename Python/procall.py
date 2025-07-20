@@ -1,6 +1,19 @@
 #!/usr/bin/env python
 
+''' A program to set up input files and optimize simulation parameters
+
+You need to modify the code according to the particular circumstances of your simulations.
+Be ultra cautious when you use this kind of script: go through the file and make sure you understand each and every line.
+
+Examples: For a directory hierarchy named like `~/projects/adsorption/Polyols/MFI/13PrDO/333K/512_1/RUN1`
+1) During equilibration:
+    /path/to/procall.py -b 3 -m 4 --swatch-pair 2 --bias-equal '2 3' --bias-nmol 1 -t 24 -f '/Polyols/MFI/.*/([\.\d]+)K/(\d+)_(\d+)$'
+2) Transition from equilibration to production:
+    /path/to/procall.py -b 3 -m 4 --swatch-pair 2 --bias-equal '2 3' --bias-nmol 1 -t 24 -f '/Polyols/MFI/.*/([\.\d]+)K/(\d+)_(\d+)$' --average
+'''
+
 import argparse
+import math
 import os
 import random
 import shutil
@@ -11,6 +24,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='MCCCS input adjustor.')
     parser.add_argument('--average', action='store_true')
     parser.add_argument('-b', '--nbox', action='store', default=2, type=int)
+    parser.add_argument('--bias-equal', action='store', default='')
+    parser.add_argument('--bias-nmol', action='store', default=1, type=float)
     parser.add_argument('-f', '--folder-pattern',
                         action='store', required=True)
     parser.add_argument('-i', '--ignore-case', action='store_true',
@@ -35,6 +50,8 @@ class TopmonInput():
         self.nmolty = args.nmolty
         self.nbox = args.nbox
         self.nswaty = args.swatch_pair
+        self.bias_equal = [int(x) for x in args.bias_equal.split()]
+        self.bias_nmol = args.bias_nmol
         self.nboxpair = int(self.nbox*(self.nbox-1)/2)
         self.avgParam = su.avgResult(nbox=self.nbox, nmolty=self.nmolty, nmoltyeta=self.nmolty,
                                      nswapbp=self.nmolty, nswatbp=args.swatch_pair, npairbox=self.nboxpair)
@@ -52,6 +69,7 @@ class TopmonInput():
         self.swatch_box_prob = avgParam.pmswtcb
         self.swap_box_prob = avgParam.pmswapb
         self.swap_mol_prob = avgParam.pmswmt
+        self.eta = avgParam.eta
 
     def modify(self, stage=None, last=None, unfinished=False):
         if self.args.time is None:
@@ -163,6 +181,50 @@ class TopmonInput():
             else:
                 self.pmswap = self.pmswat
 
+            if result.pmswat != 0 or result.pmswap != 0:
+                # adjust biasing potentials
+                self.eta = [[] for ibox in range(self.nbox)]
+                for imol in range(1, result.nmolty+1):
+                    ref_box = 0
+                    if imol in self.bias_equal:
+                        # ref_box is the simulation box containing imol but no biasing potentials
+                        # ref_box will be zero if all imol molecules are in another box, e.g., from too negative biasing potentials
+                        for ibox in range(1, result.nbox+1):
+                            if result.nmol[ibox][imol] != 0 and result.eta[ibox][imol] == 0:
+                                ref_box = ibox
+                                break
+
+                    for ibox in range(1, result.nbox+1):
+                        if result.eta[ibox][imol] == 0:
+                            # adjust only if the simulations ran with a biasing potential for imol in ibox
+                            # set eta to some small value (e.g., 0.1) to signal the desire for adjustment
+                            self.eta[ibox-1].append(0.0)
+                        elif result.nmol[ibox][imol] == 0:
+                            # cannot use the formula below
+                            delta = abs(result.eta[ibox][imol]) / 2
+                            if delta < result.temp:
+                                delta = result.temp
+                            self.eta[ibox-1].append(result.eta[ibox][imol] - delta)
+                        else:
+                            if imol in self.bias_equal:
+                                if ref_box == 0:
+                                    # cannot use the formula below
+                                    delta = abs(result.eta[ibox][imol]) / 2
+                                    if delta < result.temp:
+                                        delta = result.temp
+                                    self.eta[ibox-1].append(result.eta[ibox][imol] + delta)
+                                else:
+                                    # \Delta \mu_{ri}^{new} = \mu_{i} - \mu_{r} = \Delta \mu_{ri}^{old} + T \ln (N_i / N_r)
+                                    # \mu_{r} will be set to zero from the logic earlier
+                                    self.eta[ibox-1].append(
+                                        result.eta[ibox][imol] - result.eta[ref_box][imol] +
+                                        result.temp * math.log(result.nmol[ibox][imol] / result.nmol[ref_box][imol]))
+                            else:
+                                # \Delta \mu_{i}^{new} = \Delta \mu_{i}^{old} + T \ln (N_i / N_target)
+                                self.eta[ibox-1].append(result.eta[ibox][imol] + result.temp * math.log(result.nmol[ibox][imol] / self.bias_nmol))
+
+                        self.avgParam.eta[ibox-1][imol-1].append(self.eta[ibox-1][imol-1])
+
             if result.pmcb != 0:
                 self.pmcb = (1+2*self.pmswap) / 3
             else:
@@ -224,6 +286,13 @@ class TopmonInput():
 
                 su.set_namelist_keyword(fdat, "mc_simple", "pmtra", "{:.5e}".
                                         format(self.pmtra))  # translation prob
+
+                if self.pmswat > self.pmvol or self.pmswap > self.pmswat:
+                    # biasing potentials
+                    line_start = su.get_section(fdat, 'MOLECULE_TYPE')
+                    line_end = su.get_section(fdat, 'END MOLECULE_TYPE')
+                    for imol in range(self.nmolty):
+                        line_start = su.set_next_eta(fdat, [str(self.eta[ibox][imol]) for ibox in range(self.nbox)], line_start+1, line_end)
 
             fcfg_out = open("fort.4."+suffix, 'w')
             fcfg_out.writelines(fdat)
