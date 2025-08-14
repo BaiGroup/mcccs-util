@@ -53,6 +53,8 @@ class TopmonInput():
         self.bias_equal = [int(x) for x in args.bias_equal.split()]
         self.bias_nmol = args.bias_nmol
         self.nboxpair = int(self.nbox*(self.nbox-1)/2)
+        if self.nboxpair < 1:
+            self.nboxpair = 1
         self.avgParam = su.avgResult(nbox=self.nbox, nmolty=self.nmolty, nmoltyeta=self.nmolty,
                                      nswapbp=self.nmolty, nswatbp=args.swatch_pair, npairbox=self.nboxpair)
 
@@ -153,7 +155,7 @@ class TopmonInput():
                     self.pmswap = 0.6
 
                 if self.pmswap > 0.6:
-                    print("%.5G,%.5G" % (self.pmswat, self.pmswap))
+                    print('Swap probabilities capped: pmswat = {:.5G}, pmswap = {:.5G}'.format(self.pmswat, self.pmswap))
                     self.pmswat = (self.pmvol +
                                    (self.pmswat-self.pmvol) *
                                    (0.6-self.pmvol) /
@@ -169,9 +171,9 @@ class TopmonInput():
                                                boxpair=range(nboxpair)))
                     for i, p in enumerate(self.swap_box_prob[imol]):
                         self.avgParam.pmswapb[imol][i].append(p)
-                    result.nswap[imol*nboxpair:(imol+1)*nboxpair+1] = [
+                    result.nswap[imol*nboxpair*2+1:(imol+1)*nboxpair*2+1] = [
                         float(x) / nmol
-                        for x in result.nswap[imol*nboxpair:(imol+1)*nboxpair+1]
+                        for x in result.nswap[imol*nboxpair*2+1:(imol+1)*nboxpair*2+1]
                     ]
 
                 self.swap_mol_prob = su.estimateMolSwapProb(range(result.nmolty), result.nswap,

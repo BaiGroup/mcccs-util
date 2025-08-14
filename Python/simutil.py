@@ -917,7 +917,6 @@ def outputHistogramPeaks(fi, hist, sep, nbin, peakLocator=None):
 
 def time_in_seconds(time_str):
     parts = time_str.split('-')
-
     if len(parts) == 2:
         days = int(parts[0])
         time_str = parts[1]
@@ -925,8 +924,10 @@ def time_in_seconds(time_str):
         days = 0
         time_str = parts[0]
 
-    hours, minutes, seconds = [int(x) for x in time_str.split(':')]
-    return seconds + (minutes + (hours + days*24) * 60) * 60
+    parts = [float(x) for x in time_str.split(':')]
+    parts = [0] * (3 - len(parts)) + parts
+
+    return parts[2] + (parts[1] + (parts[0] + days*24) * 60) * 60
 
 
 def getTime(inputname):
